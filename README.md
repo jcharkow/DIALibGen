@@ -7,6 +7,7 @@ runtime.
 | Mode | Input | Result |
 |---|---|---|
 | `generate` (default) | Protein FASTA | Predicted RT, fragment intensities, CCS and optional 1/K0 |
+| `append_decoy` | Library (`.parquet`/`.tsv`) | Same library with a decoy appended per target |
 | `refine` | Library and one run's identification report | Library filtered to identified precursors, with observed RT and optional mobility/intensities |
 | `tune` | Library and one run's identification report | RT/CCS models adapted to that run, then predictions for the complete input library |
 
@@ -73,6 +74,30 @@ DIALibGen -in proteins.fasta -config generation.json -out predicted.tsv
 `.parquet` preserves the effective recipe and input/model hashes in metadata.
 `.tsv` exports DIA-NN's library dialect; retain the config separately. With
 `irt_rescale=false`, predicted RT is the model's normalized output, not iRT.
+
+## Add decoys to an existing library
+
+Append a decoy per target to a library that was already generated (or refined or
+tuned) without one. The decoy keeps the target's precursor m/z, RT and intensity
+pattern; only fragment masses move.
+
+```bash
+DIALibGen -mode append_decoy -in predicted.parquet -out decoyed.parquet \
+  -generation:decoys reverse
+```
+
+Decoy methods are `mutate` (DIA-NN 1.x), `pseudo_reverse`, `reverse`, and
+`shuffle` (DIA-NN 2.x's default family). `-generation:recompute_decoy_mz true`
+recomputes each decoy's precursor m/z from its own sequence instead of inheriting
+the target's. If the input already contains decoys, the command refuses unless you
+pass `-redecoy`, which drops the existing decoys before rebuilding them with the
+selected method. For example, to re-decoy a cached library with a different
+method without re-running the ~19 minutes of prediction inference:
+
+```bash
+DIALibGen -mode append_decoy -in decoyed.parquet -out redecoyed.parquet \
+  -generation:decoys shuffle -redecoy
+```
 
 ## Refine or tune a library
 

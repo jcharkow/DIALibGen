@@ -18,6 +18,7 @@ protected:
   void registerRefinementOptions_();
   ExitCodes main_(int argc, const char** argv) override;
   ExitCodes generate_();
+  ExitCodes decoy_();
   ExitCodes refine_(bool tune_only);
   nlohmann::json generationValue_(const std::string& key, const nlohmann::json& value);
   std::set<std::string> supplied_;

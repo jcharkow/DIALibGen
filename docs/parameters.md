@@ -6,11 +6,12 @@ The schema lists all modes. `-mode generate` is the default; refinement and trai
 
 | Option | Type | Default | Constraints | Description |
 |---|---|---|---|---|
-| `-mode` | string | `generate` | generate,refine,tune | generate: FASTA to library; refine: apply observed values; tune: train RT/CCS models and re-predict the whole library. |
-| `-in` | input-file | (empty) |  | Protein FASTA (generate) or spectral library (refine/tune). |
+| `-mode` | string | `generate` | generate,append_decoy,refine,tune | generate: FASTA to library; append_decoy: add decoys to an existing library; refine: apply observed values; tune: train RT/CCS models and re-predict the whole library. |
+| `-in` | input-file | (empty) |  | Protein FASTA (generate) or spectral library (append_decoy/refine/tune). |
 | `-out` | output-file | (empty) |  | DIA-NN spectral library; Parquet embeds provenance. |
 | `-config` | input-file | (empty) |  | Optional JSON configuration for the selected mode. Explicit CLI/INI generation settings override JSON. |
 | `-write_config` | output-file | (empty) |  | Write the effective mode configuration and exit. |
+| `-redecoy` | bool | `false` |  | append_decoy only: drop decoys already in the input before appending fresh ones with -generation:decoys. Without it, an input that already contains decoys is refused. |
 | `-irt_standards` | input-file | (empty) |  | iRT calibration standards; defaults to the bundled table. |
 | `-ids` | input-file | (empty) |  | DIA-NN report.parquet, or a pre-filtered library with -empirical_library. Modification names are canonicalised. |
 | `-out_report` | output-file | (empty) |  | Per-axis residual report (TSV), measured BEFORE the overwrite. |

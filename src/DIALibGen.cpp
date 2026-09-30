@@ -25,9 +25,9 @@ DIALibGen::DIALibGen()
 
 void DIALibGen::registerOptionsAndFlags_()
 {
-  registerStringOption_("mode", "<mode>", "generate", "generate: FASTA to library; refine: apply observed values; tune: train RT/CCS models and re-predict the whole library.", false);
-  setValidStrings_("mode", {"generate", "refine", "tune"});
-  registerInputFile_("in", "<file>", "", "Protein FASTA (generate) or spectral library (refine/tune).", false);
+  registerStringOption_("mode", "<mode>", "generate", "generate: FASTA to library; append_decoy: add decoys to an existing library; refine: apply observed values; tune: train RT/CCS models and re-predict the whole library.", false);
+  setValidStrings_("mode", {"generate", "append_decoy", "refine", "tune"});
+  registerInputFile_("in", "<file>", "", "Protein FASTA (generate) or spectral library (append_decoy/refine/tune).", false);
   setValidFormats_("in", {"fasta", "parquet", "tsv"}, false);
   registerOutputFile_("out", "<file>", "", "DIA-NN spectral library; Parquet embeds provenance.", false);
   setValidFormats_("out", {"parquet", "tsv"}, false);
@@ -35,6 +35,7 @@ void DIALibGen::registerOptionsAndFlags_()
   setValidFormats_("config", {"json"}, false);
   registerOutputFile_("write_config", "<file>", "", "Write the effective mode configuration and exit.", false);
   setValidFormats_("write_config", {"json"}, false);
+  registerFlag_("redecoy", "append_decoy: drop any decoys already in the input library before appending fresh ones with -generation:decoys. Without it, an input that already contains decoys is refused.");
   registerGenerationOptions_();
   registerRefinementOptions_();
 }
@@ -71,7 +72,13 @@ OpenMS::TOPPBase::ExitCodes DIALibGen::main_(int argc, const char** argv)
     const bool training = option.starts_with("tune") || option.starts_with("filter:") ||
       option.starts_with("cohort:") || option.starts_with("train:") || option.starts_with("stop:") || option.starts_with("machine:");
     const bool refinement = refinement_options_.count(option) || training;
-    bool wrong_mode = mode == "generate" ? refinement : option.starts_with("generation:") || option == "irt_standards";
+    const bool is_decoy_mode = mode == "append_decoy";
+    bool wrong_mode = mode == "generate" ? refinement
+      : is_decoy_mode
+          ? refinement || option == "irt_standards" ||
+            (option.starts_with("generation:") &&
+             option != "generation:decoys" && option != "generation:recompute_decoy_mz")
+          : option.starts_with("generation:") || option == "irt_standards";
     if (mode == "refine" && training && !getFlag_("tune")) { wrong_mode = true; }
     if (mode == "tune" && refinement && !training && option != "ids" && option != "out_report" &&
         option != "no_filter" && option != "no_write_rt") { wrong_mode = true; }
@@ -88,7 +95,9 @@ OpenMS::TOPPBase::ExitCodes DIALibGen::main_(int argc, const char** argv)
       return ILLEGAL_PARAMETERS;
     }
   }
-  return mode == "generate" ? generate_() : refine_(mode == "tune");
+  return mode == "generate" ? generate_()
+       : mode == "append_decoy" ? decoy_()
+       : refine_(mode == "tune");
 }
 
 namespace

@@ -311,6 +311,17 @@ if(TARGET DIALibGen AND ODIA_PYTHON AND EXISTS "${ODIA_RT_MODEL_PATH}")
                    -DMS2_MODEL=${ODIA_MS2_MODEL_PATH}
                    -DCCS_MODEL=${ODIA_CCS_MODEL_PATH}
                    -P ${CMAKE_CURRENT_SOURCE_DIR}/decoy_methods.cmake)
+
+  # -mode append_decoy appends a decoy per target to an existing library, refuses
+  # an input that already has decoys unless -redecoy is given, and -redecoy
+  # drops the old decoys before rebuilding with the requested method.
+  add_test(NAME append_decoy_cli
+           COMMAND ${CMAKE_COMMAND} -E env PYTHONDONTWRITEBYTECODE=1 ${ODIA_PYTHON}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/check_append_decoy.py
+                   $<TARGET_FILE:DIALibGen>
+                   ${ODIA_RT_MODEL_PATH} ${ODIA_MS2_MODEL_PATH} ${ODIA_CCS_MODEL_PATH}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/../example/proteins.fasta
+                   ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 if(TARGET DIALibGen AND ODIA_PYTHON)

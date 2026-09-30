@@ -8,6 +8,7 @@ The [parameter reference](parameters.md) is generated from its TOPP INI schema.
 | Task | Command |
 |---|---|
 | Predict from FASTA | `DIALibGen -in proteins.fasta -out predicted.parquet` |
+| Add decoys to a library | `DIALibGen -mode append_decoy -in predicted.parquet -out decoyed.parquet -generation:decoys reverse` |
 | Apply observed values | `DIALibGen -mode refine -in predicted.parquet -ids report.parquet -out refined.parquet` |
 | Learn RT/CCS and predict the full library | `DIALibGen -mode tune -in predicted.parquet -ids report.parquet -out tuned.parquet` |
 
@@ -63,6 +64,34 @@ Predicted RT is normalized model output by default. Set
 `-generation:irt_rescale true` for iRT calibration with the bundled standards,
 or supply `-irt_standards standards.tsv`. CCS and derived 1/K0 are distinct
 quantities; `-generation:derive_ion_mobility false` omits the conversion.
+
+## Adding decoys to an existing library
+
+`-mode append_decoy` adds a decoy for every target already in a `.parquet` or
+`.tsv` library, without re-running the expensive prediction pass that built the
+targets. Decoys keep the target's precursor m/z, RT and intensity pattern; only
+fragment masses move.
+
+```bash
+DIALibGen -mode append_decoy -in predicted.parquet -out decoyed.parquet \
+  -generation:decoys pseudo_reverse
+```
+
+The `-generation:decoys` method is one of `none`, `mutate`, `pseudo_reverse`,
+`reverse`, or `shuffle`. `-generation:recompute_decoy_mz true` recomputes each
+decoy's precursor m/z from its own sequence and re-derives its 1/K0 at the new
+mass, keeping it a consistent ion in the two-dimensional diaPASEF window.
+
+If the input already contains decoys, the command refuses to run unless you pass
+`-redecoy`, which first drops every existing decoy and then appends fresh ones
+with the selected method. This is how a cached library is re-decoyed with a
+different method without repeating the ~19 minutes of inference that produced its
+targets.
+
+```bash
+DIALibGen -mode append_decoy -in decoyed.parquet -out redecoyed.parquet \
+  -generation:decoys shuffle -redecoy
+```
 
 ## Refinement
 

@@ -585,3 +585,68 @@ OpenMS::TOPPBase::ExitCodes DIALibGen::generate_()
     writeLogInfo_("wrote " + out);
     return EXECUTION_OK;
   }
+
+  OpenMS::TOPPBase::ExitCodes DIALibGen::decoy_()
+  {
+    const std::string in = getStringOption_("in");
+    const std::string out = getParam_().getValue("out").toString();
+    if (out.empty() || in.empty())
+    { writeLogError_("-in and -out are required"); return ILLEGAL_PARAMETERS; }
+    if (!out.ends_with(".parquet") && !out.ends_with(".tsv"))
+    { writeLogError_("-out must end in .parquet or .tsv"); return ILLEGAL_PARAMETERS; }
+    if (fs::exists(out) || fs::is_symlink(out))
+    { writeLogError_("refusing to overwrite output: " + out); return CANNOT_WRITE_OUTPUT_FILE; }
+
+    const std::string decoys = getStringOption_("generation:decoys");
+    const bool recompute_decoy_mz = getStringOption_("generation:recompute_decoy_mz") == "true";
+    const bool redecoy = getFlag_("redecoy");
+    const auto method = ODIA::parseDecoyMethod(decoys);
+
+    ODIA::Library library;
+    try { ODIA::DIANNLibraryFile::load(in, library); }
+    catch (const std::exception& e)
+    { writeLogError_(std::string("cannot load ") + in + ": " + e.what()); return INPUT_FILE_NOT_FOUND; }
+
+    const std::size_t existing = library.decoyCount();
+    if (existing > 0 && !redecoy)
+    {
+      writeLogError_(in + " already contains " + std::to_string(existing) +
+                     " decoy precursor(s); pass -redecoy to drop them and rebuild with -generation:decoys " + decoys);
+      return ILLEGAL_PARAMETERS;
+    }
+    if (redecoy && existing > 0)
+    {
+      const std::size_t dropped = library.dropDecoys();
+      writeLogInfo_("dropped " + std::to_string(dropped) + " existing decoy precursor(s) before re-decoying");
+    }
+
+    std::size_t skipped = 0;
+    std::size_t made = 0;
+    try { made = ODIA::LibraryGenerator::appendDecoys(library, method, &skipped, 0, recompute_decoy_mz); }
+    catch (const std::exception& e)
+    { writeLogError_(std::string("decoy generation failed: ") + e.what()); return UNEXPECTED_RESULT; }
+    writeLogInfo_("decoys: " + std::to_string(made) + " (" + decoys + "), " +
+                  std::to_string(skipped) + " skipped");
+
+    try
+    {
+      if (out.ends_with(".parquet"))
+      {
+        json prov = json{{"schema_version", kSchemaVersion},
+                         {"mode", "append_decoy"},
+                         {"input", in},
+                         {"decoy_method", decoys},
+                         {"recompute_decoy_mz", recompute_decoy_mz},
+                         {"redecoy", redecoy}};
+        ODIA::DIANNLibraryFile::storeParquetCompact(out, library, ODIA::DIANNLibraryFile::Fingerprint{}, prov.dump());
+      }
+      else
+      {
+        ODIA::DIANNLibraryFile::storeTSV(out, library);
+      }
+    }
+    catch (const std::exception& e)
+    { writeLogError_(std::string("cannot write ") + out + ": " + e.what()); return CANNOT_WRITE_OUTPUT_FILE; }
+    writeLogInfo_("wrote " + out);
+    return EXECUTION_OK;
+  }

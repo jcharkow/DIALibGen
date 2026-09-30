@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory() as directory:
         out = root / f'effective-{next(config_number)}.json'
         run(*args, '-write_config', out)
         return json.loads(out.read_text())
-    for mode in ('generate', 'refine', 'tune'):
+    for mode in ('generate', 'append_decoy', 'refine', 'tune'):
         existing = root / f'{mode}-input.json'
         sentinel = b'{}\n'
         existing.write_bytes(sentinel)
